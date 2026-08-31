@@ -31,6 +31,7 @@ const createTables = [
         client_name VARCHAR(100) NOT NULL,
         serial_number VARCHAR(50) NOT NULL,
         installation_date DATE NOT NULL,
+        city VARCHAR(100) NOT NULL DEFAULT '',
         area_name VARCHAR(100) NOT NULL,
         district_name VARCHAR(100) NOT NULL,
         state VARCHAR(100) NOT NULL,
@@ -61,6 +62,16 @@ const initDatabase = async () => {
         for (const statement of createTables) {
             await pool.query(statement);
         }
+
+        const [cols] = await pool.query(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'fire_data' AND COLUMN_NAME = 'city'",
+            [DB_NAME]
+        );
+        if (cols.length === 0) {
+            await pool.query("ALTER TABLE fire_data ADD COLUMN city VARCHAR(100) NOT NULL DEFAULT '' AFTER installation_date");
+            console.log('Migration: Added city column to fire_data table');
+        }
+
         console.log('Database tables created successfully');
     } catch (error) {
         console.error('Error creating database tables:', error);

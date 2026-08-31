@@ -74,10 +74,10 @@ router.get('/all/search/:query', adminAuth, async (req, res) => {
             `SELECT fd.*, u.username 
              FROM fire_data fd 
              JOIN users u ON fd.user_id = u.id
-             WHERE (fd.client_name LIKE ? OR fd.serial_number LIKE ? OR fd.state LIKE ? 
-                    OR fd.invoice_number LIKE ? OR u.username LIKE ?)
+             WHERE (fd.client_name LIKE ? OR fd.serial_number LIKE ? OR fd.city LIKE ? OR fd.state LIKE ? 
+                    OR fd.district_name LIKE ? OR fd.area_name LIKE ? OR fd.invoice_number LIKE ? OR u.username LIKE ?)
              ORDER BY fd.created_at DESC`,
-            [query, query, query, query, query]
+            [query, query, query, query, query, query, query, query]
         );
         res.json(data);
     } catch (error) {
@@ -112,9 +112,9 @@ router.get('/search/:query', auth, async (req, res) => {
         const [data] = await db.query(
             `SELECT * FROM fire_data 
              WHERE user_id = ? 
-             AND (client_name LIKE ? OR serial_number LIKE ? OR state LIKE ? OR invoice_number LIKE ?)
+             AND (client_name LIKE ? OR serial_number LIKE ? OR city LIKE ? OR state LIKE ? OR district_name LIKE ? OR area_name LIKE ? OR invoice_number LIKE ?)
              ORDER BY created_at DESC`,
-            [req.user.userId, query, query, query, query]
+            [req.user.userId, query, query, query, query, query, query, query]
         );
         res.json(data);
     } catch (error) {
@@ -130,6 +130,7 @@ router.post('/', auth, upload.single('handover_certificate'), async (req, res) =
             client_name,
             serial_number,
             installation_date,
+            city,
             area_name,
             district_name,
             state,
@@ -146,15 +147,16 @@ router.post('/', auth, upload.single('handover_certificate'), async (req, res) =
 
         const [result] = await db.query(
             `INSERT INTO fire_data 
-             (user_id, client_name, serial_number, installation_date, area_name, district_name, state, 
+             (user_id, client_name, serial_number, installation_date, city, area_name, district_name, state, 
               cylinder_size, supply_type, handover_certificate, invoice_number, vehicle_name, 
               vehicle_number, warranty_in_date, warranty_over_date)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 req.user.userId,
                 client_name,
                 serial_number,
                 installation_date,
+                city,
                 area_name,
                 district_name,
                 state,
@@ -183,6 +185,7 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
             client_name,
             serial_number,
             installation_date,
+            city,
             area_name,
             district_name,
             state,
@@ -196,6 +199,9 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
         } = req.body;
 
         let handover_certificate = req.body.existing_certificate;
+        if (Array.isArray(handover_certificate)) {
+            handover_certificate = handover_certificate[handover_certificate.length - 1] || null;
+        }
         if (req.file) {
             handover_certificate = req.file.filename;
         }
@@ -206,7 +212,7 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
 
         const [result] = await db.query(
             `UPDATE fire_data 
-             SET client_name = ?, serial_number = ?, installation_date = ?, area_name = ?, 
+             SET client_name = ?, serial_number = ?, installation_date = ?, city = ?, area_name = ?, 
                  district_name = ?, state = ?, cylinder_size = ?, supply_type = ?, 
                  handover_certificate = ?, invoice_number = ?, vehicle_name = ?, 
                  vehicle_number = ?, warranty_in_date = ?, warranty_over_date = ?
@@ -215,6 +221,7 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
                 client_name,
                 serial_number,
                 installation_date,
+                city,
                 area_name,
                 district_name,
                 state,
@@ -236,7 +243,10 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
 
         res.json({ message: 'Fire data updated successfully' });
     } catch (error) {
-        console.error('Update fire data error:', error);
+        console.error('Update fire data error:', error.message);
+        if (error.code === 'ER_BAD_FIELD_ERROR') {
+            return res.status(500).json({ message: 'Database schema mismatch. Please restart the backend server.' });
+        }
         res.status(500).json({ message: 'Server error' });
     }
 });
