@@ -161,7 +161,7 @@
 
 @layer base {
   html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
   }
 
   body {
@@ -523,7 +523,6 @@
       radial-gradient(720px 460px at 0% 112%, rgb(190 18 60 / 0.3), transparent 60%),
       linear-gradient(135deg, rgb(20 15 12), rgb(127 29 29) 30%, rgb(185 28 28) 50%, rgb(234 88 12) 72%, rgb(251 146 60));
     background-size: 100% 100%, 100% 100%, 100% 100%, 300% 300%;
-    animation: gradientX 12s ease infinite;
     color: white;
   }
 
@@ -534,7 +533,6 @@
       radial-gradient(720px 460px at 0% 112%, rgb(45 212 191 / 0.28), transparent 60%),
       linear-gradient(135deg, rgb(10 15 30), rgb(30 64 175) 30%, rgb(67 56 202) 50%, rgb(79 70 229) 72%, rgb(56 189 248));
     background-size: 100% 100%, 100% 100%, 100% 100%, 300% 300%;
-    animation: gradientX 12s ease infinite;
     color: white;
   }
 
@@ -545,7 +543,6 @@
       radial-gradient(900px 520px at 50% 118%, rgb(14 165 233 / 0.16), transparent 60%),
       linear-gradient(135deg, rgb(238 242 255), rgb(237 233 254) 25%, rgb(224 242 254) 50%, rgb(253 244 255) 80%);
     background-size: 100% 100%, 100% 100%, 100% 100%, 300% 300%;
-    animation: gradientX 20s ease infinite;
   }
 
   .dashboard-bg-admin {
@@ -555,7 +552,6 @@
       radial-gradient(900px 520px at 50% 118%, rgb(244 63 94 / 0.16), transparent 60%),
       linear-gradient(135deg, rgb(254 242 242), rgb(255 247 237) 25%, rgb(254 252 232) 50%, rgb(253 244 255) 80%);
     background-size: 100% 100%, 100% 100%, 100% 100%, 300% 300%;
-    animation: gradientX 20s ease infinite;
   }
 
   .btn-fire {
@@ -688,7 +684,6 @@
 
   .data-table tbody tr:hover {
     background-color: rgb(238 242 255 / 0.6);
-    transform: scale(1.002);
   }
 
   .data-table tbody tr:nth-child(even) {

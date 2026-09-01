@@ -40,8 +40,7 @@ const upload = multer({
 router.get('/', auth, async (req, res) => {
     try {
         const [data] = await db.query(
-            'SELECT * FROM fire_data WHERE user_id = ? ORDER BY created_at DESC',
-            [req.user.userId]
+            'SELECT * FROM fire_data ORDER BY created_at DESC'
         );
         res.json(data);
     } catch (error) {
@@ -111,10 +110,9 @@ router.get('/search/:query', auth, async (req, res) => {
         const query = `%${req.params.query}%`;
         const [data] = await db.query(
             `SELECT * FROM fire_data 
-             WHERE user_id = ? 
-             AND (client_name LIKE ? OR serial_number LIKE ? OR city LIKE ? OR state LIKE ? OR district_name LIKE ? OR area_name LIKE ? OR invoice_number LIKE ?)
+             WHERE (client_name LIKE ? OR serial_number LIKE ? OR city LIKE ? OR state LIKE ? OR district_name LIKE ? OR area_name LIKE ? OR invoice_number LIKE ?)
              ORDER BY created_at DESC`,
-            [req.user.userId, query, query, query, query, query, query, query]
+            [query, query, query, query, query, query, query]
         );
         res.json(data);
     } catch (error) {
@@ -178,46 +176,50 @@ router.post('/', auth, upload.single('handover_certificate'), async (req, res) =
     }
 });
 
+// Fields that regular users are allowed to edit
+const USER_EDITABLE_FIELDS = ['client_name', 'city', 'state', 'area_name', 'district_name'];
+
 // Update fire data entry
 router.put('/:id', auth, upload.single('handover_certificate'), async (req, res) => {
     try {
-        const {
-            client_name,
-            serial_number,
-            installation_date,
-            city,
-            area_name,
-            district_name,
-            state,
-            cylinder_size,
-            supply_type,
-            invoice_number,
-            vehicle_name,
-            vehicle_number,
-            warranty_in_date,
-            warranty_over_date
-        } = req.body;
-
-        let handover_certificate = req.body.existing_certificate;
-        if (Array.isArray(handover_certificate)) {
-            handover_certificate = handover_certificate[handover_certificate.length - 1] || null;
-        }
-        if (req.file) {
-            handover_certificate = req.file.filename;
-        }
-
         const isAdmin = req.user.role === 'admin';
-        const whereClause = isAdmin ? 'id = ?' : 'id = ? AND user_id = ?';
-        const whereParams = isAdmin ? [req.params.id] : [req.params.id, req.user.userId];
+        const whereClause = 'id = ?';
+        const whereParams = [req.params.id];
 
-        const [result] = await db.query(
-            `UPDATE fire_data 
-             SET client_name = ?, serial_number = ?, installation_date = ?, city = ?, area_name = ?, 
+        let setClause = '';
+        let values = [];
+
+        if (isAdmin) {
+            const {
+                client_name,
+                serial_number,
+                installation_date,
+                city,
+                area_name,
+                district_name,
+                state,
+                cylinder_size,
+                supply_type,
+                invoice_number,
+                vehicle_name,
+                vehicle_number,
+                warranty_in_date,
+                warranty_over_date
+            } = req.body;
+
+            let handover_certificate = req.body.existing_certificate;
+            if (Array.isArray(handover_certificate)) {
+                handover_certificate = handover_certificate[handover_certificate.length - 1] || null;
+            }
+            if (req.file) {
+                handover_certificate = req.file.filename;
+            }
+
+            setClause = `client_name = ?, serial_number = ?, installation_date = ?, city = ?, area_name = ?, 
                  district_name = ?, state = ?, cylinder_size = ?, supply_type = ?, 
                  handover_certificate = ?, invoice_number = ?, vehicle_name = ?, 
-                 vehicle_number = ?, warranty_in_date = ?, warranty_over_date = ?
-             WHERE ${whereClause}`,
-            [
+                 vehicle_number = ?, warranty_in_date = ?, warranty_over_date = ?`;
+            values = [
                 client_name,
                 serial_number,
                 installation_date,
@@ -232,9 +234,35 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
                 vehicle_name,
                 vehicle_number,
                 warranty_in_date || null,
-                warranty_over_date || null,
-                ...whereParams
-            ]
+                warranty_over_date || null
+            ];
+        } else {
+            // Regular users can only edit a restricted set of fields
+            const editableValues = {};
+            USER_EDITABLE_FIELDS.forEach(field => {
+                if (field in req.body) {
+                    editableValues[field] = req.body[field];
+                }
+            });
+
+            setClause = USER_EDITABLE_FIELDS
+                .filter(field => field in editableValues)
+                .map(field => `${field} = ?`)
+                .join(', ');
+
+            if (!setClause) {
+                return res.status(400).json({ message: 'No editable fields provided' });
+            }
+            values = USER_EDITABLE_FIELDS
+                .filter(field => field in editableValues)
+                .map(field => editableValues[field]);
+        }
+
+        const [result] = await db.query(
+            `UPDATE fire_data 
+             SET ${setClause}
+             WHERE ${whereClause}`,
+            [...values, ...whereParams]
         );
 
         if (result.affectedRows === 0) {

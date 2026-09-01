@@ -179,7 +179,6 @@ function AdminDashboard({ user, onLogout, addToast }) {
 
   const handleFireSubmit = async (e) => {
     e.preventDefault();
-    if (!fireEditingId) return;
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('token');
@@ -192,17 +191,24 @@ function AdminDashboard({ user, onLogout, addToast }) {
         }
       });
 
-      data.append('existing_certificate', fireFormData.existing_certificate || '');
-      await axios.put(`http://localhost:5000/api/fire-data/${fireEditingId}`, data, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      if (fireEditingId) {
+        data.append('existing_certificate', fireFormData.existing_certificate || '');
+        await axios.put(`http://localhost:5000/api/fire-data/${fireEditingId}`, data, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        addToast({ type: 'success', title: 'Record Updated', message: 'Fire safety record updated successfully' });
+      } else {
+        await axios.post('http://localhost:5000/api/fire-data', data, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        addToast({ type: 'success', title: 'Record Created', message: 'New fire safety record has been added' });
+      }
 
-      addToast({ type: 'success', title: 'Record Updated', message: 'Fire safety record updated successfully' });
       resetFireForm();
       fetchFireData();
     } catch (error) {
-      console.error('Error updating fire data:', error);
-      addToast({ type: 'error', title: 'Update Failed', message: 'Could not update the record' });
+      console.error('Error saving fire data:', error);
+      addToast({ type: 'error', title: 'Save Failed', message: error.response?.data?.message || 'Could not save the record' });
     } finally {
       setIsSubmitting(false);
     }
@@ -307,33 +313,68 @@ function AdminDashboard({ user, onLogout, addToast }) {
         ))}
       </div>
 
-      <header className="admin-gradient sticky top-0 z-40 shadow-xl shadow-red-900/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-sm shadow-inner ring-1 ring-white/30 animate-float">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold font-display tracking-wide text-white">
-                  FIRE <span className="text-amber-300">AVENGERS</span>
-                </h1>
-                <p className="text-white/75 text-xs sm:text-sm font-medium">Admin Dashboard</p>
-              </div>
+      <div className="flex">
+      <aside className="admin-gradient w-full lg:w-64 lg:fixed lg:top-0 lg:left-0 lg:h-screen lg:overflow-y-auto z-50 shadow-xl shadow-red-900/20">
+        <div className="flex lg:flex-col h-full">
+          <div className="flex items-center gap-2.5 px-4 py-3 lg:px-5 lg:py-5 lg:border-b lg:border-white/10">
+            <div className="bg-white/20 p-2 rounded-lg shadow-inner ring-1 ring-white/30 flex-shrink-0">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
             </div>
+            <div>
+              <p className="text-white font-bold font-display tracking-wide text-sm">FIRE <span className="text-amber-300">AVENGERS</span></p>
+              <p className="text-white/60 text-[11px]">Admin Dashboard</p>
+            </div>
+          </div>
+
+          <nav className="flex-1 flex lg:flex-col gap-1 lg:gap-2 px-3 lg:px-4 lg:py-5 overflow-x-auto">
+            <button
+              onClick={() => setActiveSection('users')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
+                activeSection === 'users'
+                  ? 'bg-white text-fire-700 shadow-lg'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              <span className="hidden lg:inline">User Management</span>
+            </button>
+            <button
+              onClick={() => setActiveSection('fire')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
+                activeSection === 'fire'
+                  ? 'bg-white text-blue-700 shadow-lg'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="hidden lg:inline">Fire Safety Data</span>
+            </button>
+          </nav>
+
+        </div>
+      </aside>
+
+      <div className="flex-1 min-w-0 lg:ml-64">
+      <header className="admin-gradient sticky top-0 z-40 shadow-xl shadow-red-900/20">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex justify-end items-center gap-4">
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2.5 bg-white/10 hover:bg-white/20 px-3.5 py-2.5 rounded-xl backdrop-blur-sm transition-all duration-300 ring-1 ring-white/20 hover:ring-white/40"
+                className="flex items-center gap-2.5 bg-white/10 hover:bg-white/20 px-3.5 py-2 rounded-xl backdrop-blur-sm transition-all duration-300 ring-1 ring-white/20 hover:ring-white/40"
               >
                 <div className="w-8 h-8 bg-gradient-to-br from-white/30 to-white/10 rounded-full flex items-center justify-center ring-2 ring-white/30">
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
-                <span className="text-sm font-semibold text-white hidden sm:inline">{user.username}</span>
+                <span className="text-sm font-semibold text-white hidden sm:inline capitalize">{user.username}</span>
                 <svg className={`w-4 h-4 text-white transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -341,7 +382,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
               {dropdownOpen && (
                 <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-dramatic border border-gray-200/80 z-50 overflow-hidden animate-slide-down">
                   <div className="px-4 py-3 bg-gradient-to-r from-red-50 to-orange-50 border-b border-gray-100">
-                    <p className="text-sm font-bold text-gray-800">{user.username}</p>
+                    <p className="text-sm font-bold text-gray-800 capitalize">{user.username}</p>
                     <p className="text-xs text-gray-500">Administrator</p>
                   </div>
                   <button
@@ -360,27 +401,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-8">
-          <button
-            onClick={() => setActiveSection('users')}
-            className={`tab-btn ${activeSection === 'users' ? 'tab-btn-active-fire' : 'tab-btn-inactive'}`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            User Management
-          </button>
-          <button
-            onClick={() => setActiveSection('fire')}
-            className={`tab-btn ${activeSection === 'fire' ? 'tab-btn-active-blue' : 'tab-btn-inactive'}`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Fire Safety Data
-          </button>
-        </div>
+      <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
         {activeSection === 'users' && (
         <>
@@ -634,7 +655,6 @@ function AdminDashboard({ user, onLogout, addToast }) {
 
         {activeSection === 'fire' && (
           <>
-          {fireEditingId && (
           <div ref={fireFormRef} className="card p-6 sm:p-8 mb-8 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -644,14 +664,18 @@ function AdminDashboard({ user, onLogout, addToast }) {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 font-display">Edit Fire Safety Data</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Update the details of the selected record</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 font-display">
+                    {fireEditingId ? 'Edit Fire Safety Data' : 'Add New Fire Safety Data'}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Fill in the details below to record installation information</p>
                 </div>
               </div>
+              {fireEditingId && (
               <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-red-600 px-3 py-1.5 rounded-full shadow-md animate-bounce-in">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                 Editing #{fireEditingId}
               </span>
+              )}
             </div>
             <form onSubmit={handleFireSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -693,13 +717,14 @@ function AdminDashboard({ user, onLogout, addToast }) {
               </div>
               <div className="flex gap-3 pt-4 border-t border-gray-100">
                 <button type="submit" disabled={isSubmitting} className="btn-blue px-8 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none">
-                  {isSubmitting ? 'Updating...' : 'Update Record'}
+                  {isSubmitting ? (fireEditingId ? 'Updating...' : 'Submitting...') : (fireEditingId ? 'Update Record' : 'Add Record')}
                 </button>
+                {fireEditingId && (
                 <button type="button" onClick={resetFireForm} className="btn-secondary">Cancel</button>
+                )}
               </div>
             </form>
           </div>
-          )}
 
           <div className="card p-6 sm:p-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -714,10 +739,23 @@ function AdminDashboard({ user, onLogout, addToast }) {
                   <p className="text-xs text-gray-500 mt-0.5">Browse, search and manage all fire safety records</p>
                 </div>
               </div>
-              <span className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-bold px-3.5 py-1.5 rounded-full border border-blue-200">
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                {filteredData.length} / {fireData.length} records
-              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => { resetFireForm(); fireFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+                  className="btn-blue px-4 py-2 text-sm"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add New Record
+                  </span>
+                </button>
+                <span className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-bold px-3.5 py-1.5 rounded-full border border-blue-200">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                  {filteredData.length} / {fireData.length} records
+                </span>
+              </div>
             </div>
 
             <div className="mb-6 space-y-3">
@@ -865,6 +903,8 @@ function AdminDashboard({ user, onLogout, addToast }) {
           </div>
           </>
         )}
+        </div>
+        </div>
       </div>
     </div>
   );

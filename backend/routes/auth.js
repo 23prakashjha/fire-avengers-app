@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database');
 
-// Register
+// Register (used by admin dashboard to add users)
 router.post('/register', async (req, res) => {
     try {
         const { username, email, password, role } = req.body;
@@ -38,12 +38,12 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
     try {
-        const { username, password } = req.body;
+        const { email, password } = req.body;
 
-        // Find user
+        // Find user by email
         const [users] = await db.query(
-            'SELECT * FROM users WHERE username = ?',
-            [username]
+            'SELECT * FROM users WHERE email = ?',
+            [email]
         );
 
         if (users.length === 0) {

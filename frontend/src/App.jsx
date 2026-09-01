@@ -1,11 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect, useCallback, memo } from 'react';
-import AdminLogin from './components/AdminLogin';
-import AdminRegister from './components/AdminRegister';
-import UserLogin from './components/UserLogin';
-import UserRegister from './components/UserRegister';
 import AdminDashboard from './components/AdminDashboard';
 import UserDashboard from './components/UserDashboard';
+import Login from './components/Login';
 
 const toastIcons = {
   success: { bg: 'bg-green-100', text: 'text-green-600', path: 'M5 13l4 4L19 7' },
@@ -151,24 +148,20 @@ function App() {
           
           <Route 
             path="/admin/login" 
-            element={user?.role === 'admin' ? <Navigate to="/admin/dashboard" replace /> : <AdminLogin onLogin={handleLogin} addToast={addToast} />} 
-          />
-          <Route 
-            path="/admin/register" 
-            element={user?.role === 'admin' ? <Navigate to="/admin/dashboard" replace /> : <AdminRegister onLogin={handleLogin} addToast={addToast} />} 
+            element={<Navigate to="/login" replace />} 
           />
           <Route 
             path="/admin/dashboard" 
-            element={user?.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} addToast={addToast} /> : <Navigate to="/admin/login" replace />} 
+            element={user?.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} addToast={addToast} /> : <Navigate to="/login" replace />} 
           />
           
           <Route 
             path="/login" 
-            element={user?.role === 'user' ? <Navigate to="/dashboard" replace /> : <UserLogin onLogin={handleLogin} addToast={addToast} />} 
-          />
-          <Route 
-            path="/register" 
-            element={user?.role === 'user' ? <Navigate to="/dashboard" replace /> : <UserRegister onLogin={handleLogin} addToast={addToast} />} 
+            element={user ? (
+              user.role === 'admin' ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/dashboard" replace />
+            ) : (
+              <Login onLogin={handleLogin} addToast={addToast} />
+            )} 
           />
           <Route 
             path="/dashboard" 
