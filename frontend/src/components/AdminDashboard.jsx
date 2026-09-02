@@ -14,17 +14,21 @@ function AdminDashboard({ user, onLogout, addToast }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
+    first_name: '',
+    last_name: '',
     email: '',
     role: 'user',
     password: ''
   });
   const [fireData, setFireData] = useState([]);
+  const [clientUsers, setClientUsers] = useState([]);
   const [fireSearchQuery, setFireSearchQuery] = useState('');
   const [filterCity, setFilterCity] = useState('');
   const [filterDistrict, setFilterDistrict] = useState('');
   const [filterState, setFilterState] = useState('');
   const [fireEditingId, setFireEditingId] = useState(null);
   const [fireFormData, setFireFormData] = useState({
+    client_id: '',
     client_name: '',
     serial_number: '',
     installation_date: '',
@@ -45,6 +49,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
   useEffect(() => {
     fetchUsers();
     fetchFireData();
+    fetchClientUsers();
   }, []);
 
   useEffect(() => {
@@ -70,6 +75,18 @@ function AdminDashboard({ user, onLogout, addToast }) {
         addToast({ type: 'error', title: 'Access Denied', message: 'Admin privileges required' });
         onLogout();
       }
+    }
+  };
+
+  const fetchClientUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/users/list', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setClientUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching client users:', error);
     }
   };
 
@@ -110,6 +127,8 @@ function AdminDashboard({ user, onLogout, addToast }) {
     setEditingId(userData.id);
     setFormData({
       username: userData.username,
+      first_name: userData.first_name || '',
+      last_name: userData.last_name || '',
       email: userData.email,
       role: userData.role,
       password: ''
@@ -136,7 +155,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
   };
 
   const resetForm = () => {
-    setFormData({ username: '', email: '', role: 'user', password: '' });
+    setFormData({ username: '', first_name: '', last_name: '', email: '', role: 'user', password: '' });
     setEditingId(null);
   };
 
@@ -172,6 +191,13 @@ function AdminDashboard({ user, onLogout, addToast }) {
     const { name, value, files } = e.target;
     if (name === 'handover_certificate') {
       setFireFormData({ ...fireFormData, handover_certificate: files[0] });
+    } else if (name === 'client_id') {
+      const selectedClient = clientUsers.find(cu => cu.id === Number(value));
+      setFireFormData({
+        ...fireFormData,
+        client_id: value,
+        client_name: selectedClient ? `${selectedClient.first_name} ${selectedClient.last_name}`.trim() : fireFormData.client_name
+      });
     } else {
       setFireFormData({ ...fireFormData, [name]: value });
     }
@@ -217,6 +243,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
   const handleFireEdit = (data) => {
     setFireEditingId(data.id);
     setFireFormData({
+      client_id: data.client_id || (activeSection === 'fire' ? data.user_id : ''),
       client_name: data.client_name,
       serial_number: data.serial_number,
       installation_date: data.installation_date,
@@ -257,7 +284,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
 
   const resetFireForm = () => {
     setFireFormData({
-      client_name: '', serial_number: '', installation_date: '', city: '', area_name: '',
+      client_id: '', client_name: '', serial_number: '', installation_date: '', city: '', area_name: '',
       district_name: '', state: '', cylinder_size: '', supply_type: 'supply_only',
       handover_certificate: null, invoice_number: '', vehicle_name: 'Kitelen',
       vehicle_number: '', warranty_in_date: '', warranty_over_date: ''
@@ -277,6 +304,8 @@ function AdminDashboard({ user, onLogout, addToast }) {
       const q = fireSearchQuery.toLowerCase();
       return (
         (d.client_name || '').toLowerCase().includes(q) ||
+        (d.client_first_name || '').toLowerCase().includes(q) ||
+        (d.client_last_name || '').toLowerCase().includes(q) ||
         (d.serial_number || '').toLowerCase().includes(q) ||
         (d.city || '').toLowerCase().includes(q) ||
         (d.area_name || '').toLowerCase().includes(q) ||
@@ -495,6 +524,14 @@ function AdminDashboard({ user, onLogout, addToast }) {
                 <input type="text" name="username" required value={formData.username} onChange={handleInputChange} className="input-field" placeholder="Enter username" />
               </div>
               <div className="group">
+                <label className="mb-2 group-focus-within:text-fire-700 transition-colors">First Name *</label>
+                <input type="text" name="first_name" required value={formData.first_name} onChange={handleInputChange} className="input-field" placeholder="Enter first name" />
+              </div>
+              <div className="group">
+                <label className="mb-2 group-focus-within:text-fire-700 transition-colors">Last Name *</label>
+                <input type="text" name="last_name" required value={formData.last_name} onChange={handleInputChange} className="input-field" placeholder="Enter last name" />
+              </div>
+              <div className="group">
                 <label className="mb-2 group-focus-within:text-fire-700 transition-colors">Email *</label>
                 <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="input-field" placeholder="Enter email" />
               </div>
@@ -567,6 +604,8 @@ function AdminDashboard({ user, onLogout, addToast }) {
                 <tr>
                   <th className="px-5 py-3.5 text-left text-xs font-bold text-fire-700 border-b uppercase tracking-wider">ID</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold text-fire-700 border-b uppercase tracking-wider">Username</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-fire-700 border-b uppercase tracking-wider">First Name</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-fire-700 border-b uppercase tracking-wider">Last Name</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold text-fire-700 border-b uppercase tracking-wider">Email</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold text-fire-700 border-b uppercase tracking-wider">Role</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold text-fire-700 border-b uppercase tracking-wider">Created At</th>
@@ -576,7 +615,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
               <tbody>
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-16 text-center">
+                    <td colSpan="8" className="px-4 py-16 text-center">
                       <div className="flex flex-col items-center gap-4">
                         <div className="empty-state-icon">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -602,6 +641,8 @@ function AdminDashboard({ user, onLogout, addToast }) {
                           {userData.username}
                         </div>
                       </td>
+                      <td className="px-5 py-3.5 border-b text-sm text-gray-600">{userData.first_name || '-'}</td>
+                      <td className="px-5 py-3.5 border-b text-sm text-gray-600">{userData.last_name || '-'}</td>
                       <td className="px-5 py-3.5 border-b text-sm text-gray-600">{userData.email}</td>
                       <td className="px-5 py-3.5 border-b text-sm">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${
@@ -679,7 +720,23 @@ function AdminDashboard({ user, onLogout, addToast }) {
             </div>
             <form onSubmit={handleFireSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {[['client_name', 'Client Name *', 'text'], ['serial_number', 'Serial Number *', 'text'], ['installation_date', 'Installation Date *', 'date'],
+                <div className="group lg:col-span-3">
+                  <label className="mb-2 group-focus-within:text-blue-700 transition-colors">Select Client (User) *</label>
+                  <select name="client_id" required value={fireFormData.client_id} onChange={handleFireInputChange} className="input-field">
+                    <option value="">-- Select a client --</option>
+                    {clientUsers.map(cu => (
+                      <option key={cu.id} value={cu.id}>
+                        {cu.first_name} {cu.last_name} ({cu.username} - {cu.email})
+                      </option>
+                    ))}
+                  </select>
+                  {fireEditingId && fireFormData.client_name && fireFormData.client_id === '' && (
+                    <p className="text-xs text-amber-600 mt-1.5">
+                      Current client: {fireFormData.client_name} (legacy record)
+                    </p>
+                  )}
+                </div>
+                {[['serial_number', 'Serial Number *', 'text'], ['installation_date', 'Installation Date *', 'date'],
                   ['city', 'City *', 'text'], ['area_name', 'Area Name *', 'text'], ['district_name', 'District Name *', 'text'], ['state', 'State *', 'text'],
                   ['cylinder_size', 'Cylinder Size *', 'text'], ['invoice_number', 'Invoice Number *', 'text'], ['vehicle_number', 'Vehicle Number *', 'text'],
                   ['warranty_in_date', 'Warranty In Date', 'date'], ['warranty_over_date', 'Warranty Over Date', 'date']
@@ -843,9 +900,11 @@ function AdminDashboard({ user, onLogout, addToast }) {
                         <td className="px-4 py-3.5 border-b text-sm font-semibold text-gray-900">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-100 to-indigo-200 flex items-center justify-center flex-shrink-0">
-                              <span className="text-xs font-bold text-primary-700">{data.client_name.charAt(0).toUpperCase()}</span>
+                              <span className="text-xs font-bold text-primary-700">{data.client_first_name ? data.client_first_name.charAt(0).toUpperCase() : (data.client_username ? data.client_username.charAt(0).toUpperCase() : (data.client_name ? data.client_name.charAt(0).toUpperCase() : '?'))}</span>
                             </div>
-                            {data.client_name}
+                            {data.client_first_name
+                              ? `${data.client_first_name} ${data.client_last_name || ''}`.trim()
+                              : (data.client_username || data.client_name || '-')}
                           </div>
                         </td>
                         <td className="px-4 py-3.5 border-b text-sm text-gray-600 font-mono text-xs">{data.serial_number}</td>
@@ -857,12 +916,12 @@ function AdminDashboard({ user, onLogout, addToast }) {
                         </td>
                         <td className="px-4 py-3.5 border-b text-sm text-gray-600">
                           <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-indigo-200">
-                            {data.area_name}
+                            {data.district_name}
                           </span>
                         </td>
                         <td className="px-4 py-3.5 border-b text-sm text-gray-600">
                           <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-purple-200">
-                            {data.district_name}
+                            {data.state}
                           </span>
                         </td>
                         <td className="px-4 py-3.5 border-b text-sm">

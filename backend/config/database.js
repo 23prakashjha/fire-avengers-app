@@ -19,6 +19,8 @@ const createTables = [
     `CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(50) NOT NULL UNIQUE,
+        first_name VARCHAR(50) NOT NULL DEFAULT '',
+        last_name VARCHAR(50) NOT NULL DEFAULT '',
         email VARCHAR(100) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
         role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
@@ -28,6 +30,7 @@ const createTables = [
     `CREATE TABLE IF NOT EXISTS fire_data (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
+        client_id INT DEFAULT NULL,
         client_name VARCHAR(100) NOT NULL,
         serial_number VARCHAR(50) NOT NULL,
         installation_date DATE NOT NULL,
@@ -45,7 +48,8 @@ const createTables = [
         warranty_over_date DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE SET NULL
     )`
 ];
 
@@ -70,6 +74,26 @@ const initDatabase = async () => {
         if (cols.length === 0) {
             await pool.query("ALTER TABLE fire_data ADD COLUMN city VARCHAR(100) NOT NULL DEFAULT '' AFTER installation_date");
             console.log('Migration: Added city column to fire_data table');
+        }
+
+        const [firstNameCol] = await pool.query(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'first_name'",
+            [DB_NAME]
+        );
+        if (firstNameCol.length === 0) {
+            await pool.query("ALTER TABLE users ADD COLUMN first_name VARCHAR(50) NOT NULL DEFAULT '' AFTER username");
+            await pool.query("ALTER TABLE users ADD COLUMN last_name VARCHAR(50) NOT NULL DEFAULT '' AFTER first_name");
+            console.log('Migration: Added first_name, last_name columns to users table');
+        }
+
+        const [clientIdCol] = await pool.query(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'fire_data' AND COLUMN_NAME = 'client_id'",
+            [DB_NAME]
+        );
+        if (clientIdCol.length === 0) {
+            await pool.query("ALTER TABLE fire_data ADD COLUMN client_id INT DEFAULT NULL AFTER user_id");
+            await pool.query("ALTER TABLE fire_data ADD FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE SET NULL");
+            console.log('Migration: Added client_id column to fire_data table');
         }
 
         console.log('Database tables created successfully');

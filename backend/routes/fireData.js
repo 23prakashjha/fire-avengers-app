@@ -40,7 +40,12 @@ const upload = multer({
 router.get('/', auth, async (req, res) => {
     try {
         const [data] = await db.query(
-            'SELECT * FROM fire_data ORDER BY created_at DESC'
+            `SELECT fd.*, cu.first_name AS client_first_name, cu.last_name AS client_last_name, cu.username AS client_username
+             FROM fire_data fd
+             LEFT JOIN users cu ON fd.client_id = cu.id
+             WHERE fd.user_id = ?
+             ORDER BY fd.created_at DESC`,
+            [req.user.userId]
         );
         res.json(data);
     } catch (error) {
@@ -53,9 +58,10 @@ router.get('/', auth, async (req, res) => {
 router.get('/all', adminAuth, async (req, res) => {
     try {
         const [data] = await db.query(
-            `SELECT fd.*, u.username 
+            `SELECT fd.*, u.username, cu.first_name AS client_first_name, cu.last_name AS client_last_name, cu.username AS client_username
              FROM fire_data fd 
              JOIN users u ON fd.user_id = u.id 
+             LEFT JOIN users cu ON fd.client_id = cu.id
              ORDER BY fd.created_at DESC`
         );
         res.json(data);
@@ -70,13 +76,15 @@ router.get('/all/search/:query', adminAuth, async (req, res) => {
     try {
         const query = `%${req.params.query}%`;
         const [data] = await db.query(
-            `SELECT fd.*, u.username 
+            `SELECT fd.*, u.username, cu.first_name AS client_first_name, cu.last_name AS client_last_name, cu.username AS client_username
              FROM fire_data fd 
              JOIN users u ON fd.user_id = u.id
+             LEFT JOIN users cu ON fd.client_id = cu.id
              WHERE (fd.client_name LIKE ? OR fd.serial_number LIKE ? OR fd.city LIKE ? OR fd.state LIKE ? 
-                    OR fd.district_name LIKE ? OR fd.area_name LIKE ? OR fd.invoice_number LIKE ? OR u.username LIKE ?)
+                    OR fd.district_name LIKE ? OR fd.area_name LIKE ? OR fd.invoice_number LIKE ? OR u.username LIKE ?
+                    OR cu.first_name LIKE ? OR cu.last_name LIKE ? OR cu.username LIKE ?)
              ORDER BY fd.created_at DESC`,
-            [query, query, query, query, query, query, query, query]
+            [query, query, query, query, query, query, query, query, query, query, query]
         );
         res.json(data);
     } catch (error) {
@@ -104,15 +112,17 @@ router.get('/:id', auth, async (req, res) => {
     }
 });
 
-// Search fire data
+// Search fire data (scoped to logged-in user)
 router.get('/search/:query', auth, async (req, res) => {
     try {
         const query = `%${req.params.query}%`;
         const [data] = await db.query(
-            `SELECT * FROM fire_data 
-             WHERE (client_name LIKE ? OR serial_number LIKE ? OR city LIKE ? OR state LIKE ? OR district_name LIKE ? OR area_name LIKE ? OR invoice_number LIKE ?)
-             ORDER BY created_at DESC`,
-            [query, query, query, query, query, query, query]
+            `SELECT fd.*, cu.first_name AS client_first_name, cu.last_name AS client_last_name, cu.username AS client_username
+             FROM fire_data fd
+             LEFT JOIN users cu ON fd.client_id = cu.id
+             WHERE fd.user_id = ? AND (fd.client_name LIKE ? OR cu.first_name LIKE ? OR cu.last_name LIKE ? OR cu.username LIKE ? OR fd.serial_number LIKE ? OR fd.city LIKE ? OR fd.state LIKE ? OR fd.district_name LIKE ? OR fd.area_name LIKE ? OR fd.invoice_number LIKE ?)
+             ORDER BY fd.created_at DESC`,
+            [req.user.userId, query, query, query, query, query, query, query, query, query, query]
         );
         res.json(data);
     } catch (error) {
@@ -125,6 +135,7 @@ router.get('/search/:query', auth, async (req, res) => {
 router.post('/', auth, upload.single('handover_certificate'), async (req, res) => {
     try {
         const {
+            client_id,
             client_name,
             serial_number,
             installation_date,
@@ -142,16 +153,22 @@ router.post('/', auth, upload.single('handover_certificate'), async (req, res) =
         } = req.body;
 
         const handover_certificate = req.file ? req.file.filename : null;
+        const isAdmin = req.user.role === 'admin';
+
+        const userId = isAdmin ? (client_id || req.user.userId) : req.user.userId;
+        const clientId = isAdmin ? (client_id || null) : req.user.userId;
+        const resolvedClientName = isAdmin ? (client_name || '') : client_name;
 
         const [result] = await db.query(
             `INSERT INTO fire_data 
-             (user_id, client_name, serial_number, installation_date, city, area_name, district_name, state, 
+             (user_id, client_id, client_name, serial_number, installation_date, city, area_name, district_name, state, 
               cylinder_size, supply_type, handover_certificate, invoice_number, vehicle_name, 
               vehicle_number, warranty_in_date, warranty_over_date)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                req.user.userId,
-                client_name,
+                userId,
+                clientId,
+                resolvedClientName,
                 serial_number,
                 installation_date,
                 city,
@@ -191,6 +208,7 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
 
         if (isAdmin) {
             const {
+                client_id,
                 client_name,
                 serial_number,
                 installation_date,
@@ -215,11 +233,13 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
                 handover_certificate = req.file.filename;
             }
 
-            setClause = `client_name = ?, serial_number = ?, installation_date = ?, city = ?, area_name = ?, 
+            setClause = `user_id = ?, client_id = ?, client_name = ?, serial_number = ?, installation_date = ?, city = ?, area_name = ?, 
                  district_name = ?, state = ?, cylinder_size = ?, supply_type = ?, 
                  handover_certificate = ?, invoice_number = ?, vehicle_name = ?, 
                  vehicle_number = ?, warranty_in_date = ?, warranty_over_date = ?`;
             values = [
+                client_id || req.user.userId,
+                client_id || null,
                 client_name,
                 serial_number,
                 installation_date,

@@ -7,7 +7,7 @@ const db = require('../config/database');
 // Register (used by admin dashboard to add users)
 router.post('/register', async (req, res) => {
     try {
-        const { username, email, password, role } = req.body;
+        const { username, first_name, last_name, email, password, role } = req.body;
 
         // Check if user exists
         const [existing] = await db.query(
@@ -24,8 +24,8 @@ router.post('/register', async (req, res) => {
 
         // Insert user
         const [result] = await db.query(
-            'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
-            [username, email, hashedPassword, role || 'user']
+            'INSERT INTO users (username, first_name, last_name, email, password, role) VALUES (?, ?, ?, ?, ?, ?)',
+            [username, first_name || '', last_name || '', email, hashedPassword, role || 'user']
         );
 
         res.status(201).json({ message: 'User registered successfully', userId: result.insertId });
@@ -70,6 +70,8 @@ router.post('/login', async (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
+                first_name: user.first_name,
+                last_name: user.last_name,
                 email: user.email,
                 role: user.role
             }

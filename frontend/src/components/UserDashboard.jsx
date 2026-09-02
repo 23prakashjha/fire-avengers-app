@@ -44,8 +44,11 @@ function UserDashboard({ user, onLogout, addToast }) {
   };
 
   const openEdit = (data) => {
+    const clientName = data.client_first_name
+      ? `${data.client_first_name} ${data.client_last_name || ''}`.trim()
+      : (data.client_username || data.client_name || '');
     setEditForm({
-      client_name: data.client_name || '',
+      client_name: clientName,
       city: data.city || '',
       state: data.state || '',
       area_name: data.area_name || '',
@@ -102,6 +105,9 @@ function UserDashboard({ user, onLogout, addToast }) {
       const q = searchQuery.toLowerCase();
       return (
         (d.client_name || '').toLowerCase().includes(q) ||
+        (d.client_first_name || '').toLowerCase().includes(q) ||
+        (d.client_last_name || '').toLowerCase().includes(q) ||
+        (d.client_username || '').toLowerCase().includes(q) ||
         (d.serial_number || '').toLowerCase().includes(q) ||
         (d.city || '').toLowerCase().includes(q) ||
         (d.area_name || '').toLowerCase().includes(q) ||
@@ -319,9 +325,11 @@ function UserDashboard({ user, onLogout, addToast }) {
                       <td className="px-4 py-3.5 border-b text-sm font-semibold text-gray-900">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-100 to-indigo-200 flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-bold text-primary-700">{data.client_name.charAt(0).toUpperCase()}</span>
+                            <span className="text-xs font-bold text-primary-700">{data.client_first_name ? data.client_first_name.charAt(0).toUpperCase() : (data.client_username ? data.client_username.charAt(0).toUpperCase() : (data.client_name ? data.client_name.charAt(0).toUpperCase() : '?'))}</span>
                           </div>
-                          {data.client_name}
+                          {data.client_first_name
+                            ? `${data.client_first_name} ${data.client_last_name || ''}`.trim()
+                            : (data.client_username || data.client_name || '-')}
                         </div>
                       </td>
                       <td className="px-4 py-3.5 border-b text-sm text-gray-600 font-mono text-xs">{data.serial_number}</td>
@@ -333,12 +341,12 @@ function UserDashboard({ user, onLogout, addToast }) {
                       </td>
                       <td className="px-4 py-3.5 border-b text-sm text-gray-600">
                         <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-indigo-200">
-                          {data.area_name}
+                          {data.district_name}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 border-b text-sm text-gray-600">
                         <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-purple-200">
-                          {data.district_name}
+                          {data.state}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 border-b text-sm">

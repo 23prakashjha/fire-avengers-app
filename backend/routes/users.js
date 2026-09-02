@@ -8,11 +8,25 @@ const { adminAuth } = require('../middleware/auth');
 router.get('/', adminAuth, async (req, res) => {
     try {
         const [users] = await db.query(
-            'SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC'
+            'SELECT id, username, first_name, last_name, email, role, created_at FROM users ORDER BY created_at DESC'
         );
         res.json(users);
     } catch (error) {
         console.error('Get users error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Get user list for client dropdown (admin only)
+router.get('/list', adminAuth, async (req, res) => {
+    try {
+        const [users] = await db.query(
+            'SELECT id, username, first_name, last_name, email FROM users WHERE role = ? ORDER BY first_name ASC',
+            ['user']
+        );
+        res.json(users);
+    } catch (error) {
+        console.error('Get user list error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -39,10 +53,10 @@ router.get('/:id', adminAuth, async (req, res) => {
 // Update user (admin only)
 router.put('/:id', adminAuth, async (req, res) => {
     try {
-        const { username, email, role, password } = req.body;
+        const { username, first_name, last_name, email, role, password } = req.body;
 
-        let query = 'UPDATE users SET username = ?, email = ?, role = ?';
-        const params = [username, email, role];
+        let query = 'UPDATE users SET username = ?, first_name = ?, last_name = ?, email = ?, role = ?';
+        const params = [username, first_name || '', last_name || '', email, role];
 
         if (password) {
             const hashedPassword = await bcrypt.hash(password, 10);
