@@ -1,4 +1,5 @@
 const mysql = require('mysql2');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const DB_NAME = process.env.DB_NAME || 'fire_avengers';
@@ -94,6 +95,19 @@ const initDatabase = async () => {
             await pool.query("ALTER TABLE fire_data ADD COLUMN client_id INT DEFAULT NULL AFTER user_id");
             await pool.query("ALTER TABLE fire_data ADD FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE SET NULL");
             console.log('Migration: Added client_id column to fire_data table');
+        }
+
+        const [adminExists] = await pool.query(
+            "SELECT id FROM users WHERE email = ?",
+            ['vikas27@gmail.com']
+        );
+        if (adminExists.length === 0) {
+            const hashedPassword = await bcrypt.hash('vik27@', 10);
+            await pool.query(
+                'INSERT INTO users (username, first_name, last_name, email, password, role) VALUES (?, ?, ?, ?, ?, ?)',
+                ['vikas', 'Vikas', 'Admin', 'vikas27@gmail.com', hashedPassword, 'admin']
+            );
+            console.log('Default admin user created: vikas27@gmail.com');
         }
 
         console.log('Database tables created successfully');
