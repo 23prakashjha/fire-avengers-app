@@ -1,24 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 
-function UserDashboard({ user, onLogout, addToast }) {
+function UserDashboard({ user, onLogout }) {
   const [fireData, setFireData] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCity, setFilterCity] = useState('');
-  const [filterDistrict, setFilterDistrict] = useState('');
   const [filterState, setFilterState] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = null;
-  const [editingData, setEditingData] = useState(null);
-  const [editForm, setEditForm] = useState({
-    client_name: '',
-    city: '',
-    state: '',
-    area_name: '',
-    district_name: ''
-  });
-  const [isSaving, setIsSaving] = useState(false);
-  const [editError, setEditError] = useState('');
+  const [viewData, setViewData] = useState(null);
 
   useEffect(() => {
     fetchFireData();
@@ -43,48 +33,12 @@ function UserDashboard({ user, onLogout, addToast }) {
     }
   };
 
-  const openEdit = (data) => {
-    const clientName = data.client_first_name
-      ? `${data.client_first_name} ${data.client_last_name || ''}`.trim()
-      : (data.client_username || data.client_name || '');
-    setEditForm({
-      client_name: clientName,
-      city: data.city || '',
-      state: data.state || '',
-      area_name: data.area_name || '',
-      district_name: data.district_name || ''
-    });
-    setEditError('');
-    setEditingData(data);
+  const openView = (data) => {
+    setViewData(data);
   };
 
-  const closeEdit = () => {
-    setEditingData(null);
-    setEditError('');
-  };
-
-  const handleEditInputChange = (e) => {
-    setEditForm({ ...editForm, [e.target.name]: e.target.value });
-  };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setEditError('');
-    try {
-      const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/fire-data/${editingData.id}`, editForm, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      addToast({ type: 'success', title: 'Record Updated', message: 'Fire safety record updated successfully' });
-      closeEdit();
-      fetchFireData();
-    } catch (error) {
-      console.error('Error updating fire data:', error);
-      setEditError(error.response?.data?.message || 'Could not update the record');
-    } finally {
-      setIsSaving(false);
-    }
+  const closeView = () => {
+    setViewData(null);
   };
 
   const activeWarranties = useMemo(() => fireData.filter(d => {
@@ -94,20 +48,15 @@ function UserDashboard({ user, onLogout, addToast }) {
   }).length, [fireData]);
 
   const cities = useMemo(() => [...new Set(fireData.map(d => d.city).filter(Boolean))], [fireData]);
-  const districts = useMemo(() => [...new Set(fireData.map(d => d.district_name).filter(Boolean))], [fireData]);
   const states = useMemo(() => [...new Set(fireData.map(d => d.state).filter(Boolean))], [fireData]);
 
   const filteredData = useMemo(() => fireData.filter(d => {
     if (filterCity && d.city !== filterCity) return false;
-    if (filterDistrict && d.district_name !== filterDistrict) return false;
     if (filterState && d.state !== filterState) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return (
         (d.client_name || '').toLowerCase().includes(q) ||
-        (d.client_first_name || '').toLowerCase().includes(q) ||
-        (d.client_last_name || '').toLowerCase().includes(q) ||
-        (d.client_username || '').toLowerCase().includes(q) ||
         (d.serial_number || '').toLowerCase().includes(q) ||
         (d.city || '').toLowerCase().includes(q) ||
         (d.area_name || '').toLowerCase().includes(q) ||
@@ -117,7 +66,7 @@ function UserDashboard({ user, onLogout, addToast }) {
       );
     }
     return true;
-  }), [fireData, filterCity, filterDistrict, filterState, searchQuery]);
+  }), [fireData, filterCity, filterState, searchQuery]);
 
   return (
     <div className="min-h-screen dashboard-bg-user relative overflow-hidden">
@@ -251,13 +200,13 @@ function UserDashboard({ user, onLogout, addToast }) {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by Client, Serial, City, District, State, or Invoice..."
+                  placeholder="Search by Client, City, or State..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="input-field pl-11"
                 />
               </div>
-              <button onClick={() => { setSearchQuery(''); setFilterCity(''); setFilterDistrict(''); setFilterState(''); fetchFireData(); }} className="btn-secondary">
+              <button onClick={() => { setSearchQuery(''); setFilterCity(''); setFilterState(''); fetchFireData(); }} className="btn-secondary">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 Reset Filters
               </button>
@@ -270,15 +219,6 @@ function UserDashboard({ user, onLogout, addToast }) {
                 <select value={filterCity} onChange={(e) => setFilterCity(e.target.value)} className="input-field pl-10">
                   <option value="">All Cities</option>
                   {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                </div>
-                <select value={filterDistrict} onChange={(e) => setFilterDistrict(e.target.value)} className="input-field pl-10">
-                  <option value="">All Districts</option>
-                  {districts.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
               <div className="relative flex-1">
@@ -297,7 +237,7 @@ function UserDashboard({ user, onLogout, addToast }) {
             <table className="w-full border-collapse data-table">
               <thead>
                 <tr>
-                  {['Client Name', 'Serial Number', 'City', 'District', 'State', 'Cylinder Size', 'Invoice No.', 'Warranty', 'Actions'].map(col => (
+                  {['Client Name', 'City', 'State', 'Actions'].map(col => (
                     <th key={col} className="px-4 py-3.5 text-left text-xs font-bold text-primary-700 border-b uppercase tracking-wider">{col}</th>
                   ))}
                 </tr>
@@ -305,7 +245,7 @@ function UserDashboard({ user, onLogout, addToast }) {
               <tbody>
                 {filteredData.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="px-4 py-16 text-center">
+                    <td colSpan="4" className="px-4 py-16 text-center">
                       <div className="flex flex-col items-center gap-4">
                         <div className="empty-state-icon">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -325,23 +265,15 @@ function UserDashboard({ user, onLogout, addToast }) {
                       <td className="px-4 py-3.5 border-b text-sm font-semibold text-gray-900">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-100 to-indigo-200 flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-bold text-primary-700">{data.client_first_name ? data.client_first_name.charAt(0).toUpperCase() : (data.client_username ? data.client_username.charAt(0).toUpperCase() : (data.client_name ? data.client_name.charAt(0).toUpperCase() : '?'))}</span>
+                            <span className="text-xs font-bold text-primary-700">{(data.client_name || '?').charAt(0).toUpperCase()}</span>
                           </div>
-                          {data.client_first_name
-                            ? `${data.client_first_name} ${data.client_last_name || ''}`.trim()
-                            : (data.client_username || data.client_name || '-')}
+                          {data.client_name || '-'}
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 border-b text-sm text-gray-600 font-mono text-xs">{data.serial_number}</td>
                       <td className="px-4 py-3.5 border-b text-sm text-gray-600">
                         <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-blue-200">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
                           {data.city || '-'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 border-b text-sm text-gray-600">
-                        <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-indigo-200">
-                          {data.district_name}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 border-b text-sm text-gray-600">
@@ -350,26 +282,9 @@ function UserDashboard({ user, onLogout, addToast }) {
                         </span>
                       </td>
                       <td className="px-4 py-3.5 border-b text-sm">
-                        <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full text-xs font-semibold">
-                          <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                          {data.cylinder_size}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 border-b text-sm text-gray-600">{data.invoice_number}</td>
-                      <td className="px-4 py-3.5 border-b text-sm">
-                        {data.warranty_in_date && data.warranty_over_date ? (
-                          <span className="inline-flex items-center gap-1.5 text-green-700 bg-green-50 px-2.5 py-1 rounded-full text-xs font-semibold border border-green-200">
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                            {new Date(data.warranty_in_date).toLocaleDateString()} - {new Date(data.warranty_over_date).toLocaleDateString()}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-gray-400 text-xs">N/A</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 border-b text-sm">
-                        <button onClick={() => openEdit(data)} className="action-btn action-btn-edit">
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                          Edit
+                        <button onClick={() => openView(data)} className="action-btn bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm-9 0a9 9 0 0118 0 9 9 0 01-18 0z" /></svg>
+                          View
                         </button>
                       </td>
                     </tr>
@@ -381,78 +296,94 @@ function UserDashboard({ user, onLogout, addToast }) {
         </div>
       </div>
 
-      {editingData && (
+      {viewData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeEdit}></div>
-          <div className="relative bg-white rounded-2xl shadow-dramatic w-full max-w-lg overflow-hidden animate-slide-up">
-            <div className="bg-gradient-to-r from-primary-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeView}></div>
+          <div className="relative bg-white rounded-2xl shadow-dramatic w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-slide-up">
+            <div className="bg-gradient-to-r from-primary-600 to-indigo-700 px-6 py-4 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="bg-white/20 p-2 rounded-lg">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm-9 0a9 9 0 0118 0 9 9 0 01-18 0z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-white font-bold font-display">Edit Fire Safety Data</h3>
-                  <p className="text-white/70 text-xs">Only selected fields can be changed</p>
+                  <h3 className="text-white font-bold font-display">Fire Safety Data Details</h3>
+                  <p className="text-white/70 text-xs">Record #{viewData.id} • Created {new Date(viewData.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
-              <button onClick={closeEdit} className="text-white/80 hover:text-white transition-colors">
+              <button onClick={closeView} className="text-white/80 hover:text-white transition-colors">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <form onSubmit={handleUpdate} className="p-6 space-y-5">
-              {editError && (
-                <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-r-xl flex items-center gap-3">
-                  <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm font-medium">{editError}</span>
-                </div>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-6 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  ['client_name', 'Client Name *', 'text'],
-                  ['city', 'City *', 'text'],
-                  ['state', 'State *', 'text'],
-                  ['area_name', 'Area Name *', 'text'],
-                  ['district_name', 'District Name *', 'text']
-                ].map(([name, label, type]) => (
-                  <div key={name} className={name === 'client_name' ? 'sm:col-span-2' : ''}>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">{label}</label>
-                    <input
-                      type={type}
-                      name={name}
-                      required={label.includes('*')}
-                      value={editForm[name]}
-                      onChange={handleEditInputChange}
-                      className="input-field"
-                    />
+                  { label: 'Client Name', value: viewData.client_name || '-' },
+                  { label: 'Serial Number', value: viewData.serial_number || '-' },
+                  { label: 'Installation Date', value: viewData.installation_date ? new Date(viewData.installation_date).toLocaleDateString() : '-' },
+                  { label: 'City', value: viewData.city || '-' },
+                  { label: 'Area Name', value: viewData.area_name || '-' },
+                  { label: 'District Name', value: viewData.district_name || '-' },
+                  { label: 'State', value: viewData.state || '-' },
+                  { label: 'Cylinder Size', value: viewData.cylinder_size || '-' },
+                  { label: 'Supply Type', value: viewData.supply_type === 'sitc' ? 'SITC' : 'Supply Only' },
+                  { label: 'Invoice Number', value: viewData.invoice_number || '-' },
+                  { label: 'Vehicle Name', value: viewData.vehicle_name || '-' },
+                  { label: 'Vehicle Number', value: viewData.vehicle_number || '-' },
+                  { label: 'Warranty In Date', value: viewData.warranty_in_date ? new Date(viewData.warranty_in_date).toLocaleDateString() : '-' },
+                  { label: 'Warranty Over Date', value: viewData.warranty_over_date ? new Date(viewData.warranty_over_date).toLocaleDateString() : '-' },
+                  { label: 'Last Updated', value: viewData.updated_at ? new Date(viewData.updated_at).toLocaleString() : '-' }
+                ].map((item) => (
+                  <div key={item.label} className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm hover:shadow-md hover:border-primary-300 transition-all">
+                    <p className="flex items-center gap-1.5 text-[11px] font-bold text-primary-600 uppercase tracking-wider mb-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-primary-500 to-indigo-500"></span>
+                      {item.label}
+                    </p>
+                    <p className="text-sm font-semibold text-gray-800 break-words">{item.value}</p>
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <p className="text-xs text-gray-400 flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  Serial no., cylinder size, invoice etc. cannot be changed
+              <div className="mt-5 bg-gradient-to-br from-gray-50 to-indigo-50/50 border border-gray-100 rounded-2xl px-5 py-4">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold text-primary-600 uppercase tracking-wider mb-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-safety-500 to-blue-500"></span>
+                  Handover Certificate
                 </p>
-                <div className="flex gap-3">
-                  <button type="button" onClick={closeEdit} className="btn-secondary">Cancel</button>
-                  <button type="submit" disabled={isSaving} className="btn-primary bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 focus:ring-primary-500 shadow-lg px-6 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none">
-                    {isSaving ? (
-                      <span className="flex items-center gap-2">
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        Saving...
-                      </span>
-                    ) : 'Save Changes'}
-                  </button>
-                </div>
+                {viewData.handover_certificate ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    {viewData.handover_certificate.toLowerCase().endsWith('.pdf') ? (
+                      <div className="w-20 h-20 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-9 h-9 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6H6zm8 7a1 1 0 00-1-1H7a1 1 0 000 2h6a1 1 0 001-1zm-1 4a1 1 0 110 2H7a1 1 0 010-2h6zm4 5a1 1 0 01-1 1H7a1 1 0 010-2h9a1 1 0 011 1z" clipRule="evenodd" /></svg>
+                      </div>
+                    ) : (
+                      <img
+                        src={`http://localhost:5000/uploads/${viewData.handover_certificate}`}
+                        alt="Handover certificate"
+                        className="w-20 h-20 object-cover rounded-xl border border-gray-200 flex-shrink-0 shadow-sm"
+                      />
+                    )}
+                    <a
+                      href={`http://localhost:5000/uploads/${viewData.handover_certificate}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 border border-blue-200 px-3.5 py-2 rounded-lg transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                      View Certificate
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">No certificate uploaded</p>
+                )}
               </div>
-            </form>
+              <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-gray-100">
+                <button onClick={closeView} className="btn-primary bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 focus:ring-primary-500 shadow-lg px-6">
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

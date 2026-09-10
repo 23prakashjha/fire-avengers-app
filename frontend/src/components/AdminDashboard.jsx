@@ -21,14 +21,13 @@ function AdminDashboard({ user, onLogout, addToast }) {
     password: ''
   });
   const [fireData, setFireData] = useState([]);
-  const [clientUsers, setClientUsers] = useState([]);
   const [fireSearchQuery, setFireSearchQuery] = useState('');
   const [filterCity, setFilterCity] = useState('');
   const [filterDistrict, setFilterDistrict] = useState('');
   const [filterState, setFilterState] = useState('');
   const [fireEditingId, setFireEditingId] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [fireFormData, setFireFormData] = useState({
-    client_id: '',
     client_name: '',
     serial_number: '',
     installation_date: '',
@@ -49,7 +48,6 @@ function AdminDashboard({ user, onLogout, addToast }) {
   useEffect(() => {
     fetchUsers();
     fetchFireData();
-    fetchClientUsers();
   }, []);
 
   useEffect(() => {
@@ -75,18 +73,6 @@ function AdminDashboard({ user, onLogout, addToast }) {
         addToast({ type: 'error', title: 'Access Denied', message: 'Admin privileges required' });
         onLogout();
       }
-    }
-  };
-
-  const fetchClientUsers = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/users/list', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setClientUsers(response.data);
-    } catch (error) {
-      console.error('Error fetching client users:', error);
     }
   };
 
@@ -191,16 +177,13 @@ function AdminDashboard({ user, onLogout, addToast }) {
     const { name, value, files } = e.target;
     if (name === 'handover_certificate') {
       setFireFormData({ ...fireFormData, handover_certificate: files[0] });
-    } else if (name === 'client_id') {
-      const selectedClient = clientUsers.find(cu => cu.id === Number(value));
-      setFireFormData({
-        ...fireFormData,
-        client_id: value,
-        client_name: selectedClient ? `${selectedClient.first_name} ${selectedClient.last_name}`.trim() : fireFormData.client_name
-      });
     } else {
       setFireFormData({ ...fireFormData, [name]: value });
     }
+  };
+
+  const handleUserSelect = (e) => {
+    setSelectedUserId(e.target.value);
   };
 
   const handleFireSubmit = async (e) => {
@@ -209,6 +192,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
     try {
       const token = localStorage.getItem('token');
       const data = new FormData();
+      data.append('user_id', selectedUserId || '');
       Object.keys(fireFormData).forEach(key => {
         if (key === 'handover_certificate' && fireFormData[key]) {
           data.append(key, fireFormData[key]);
@@ -242,8 +226,8 @@ function AdminDashboard({ user, onLogout, addToast }) {
 
   const handleFireEdit = (data) => {
     setFireEditingId(data.id);
+    setSelectedUserId(data.user_id ? String(data.user_id) : '');
     setFireFormData({
-      client_id: data.client_id || (activeSection === 'fire' ? data.user_id : ''),
       client_name: data.client_name,
       serial_number: data.serial_number,
       installation_date: data.installation_date,
@@ -284,12 +268,13 @@ function AdminDashboard({ user, onLogout, addToast }) {
 
   const resetFireForm = () => {
     setFireFormData({
-      client_id: '', client_name: '', serial_number: '', installation_date: '', city: '', area_name: '',
+      client_name: '', serial_number: '', installation_date: '', city: '', area_name: '',
       district_name: '', state: '', cylinder_size: '', supply_type: 'supply_only',
       handover_certificate: null, invoice_number: '', vehicle_name: 'Kitelen',
       vehicle_number: '', warranty_in_date: '', warranty_over_date: ''
     });
     setFireEditingId(null);
+    setSelectedUserId('');
   };
 
   const cities = useMemo(() => [...new Set(fireData.map(d => d.city).filter(Boolean))], [fireData]);
@@ -304,8 +289,6 @@ function AdminDashboard({ user, onLogout, addToast }) {
       const q = fireSearchQuery.toLowerCase();
       return (
         (d.client_name || '').toLowerCase().includes(q) ||
-        (d.client_first_name || '').toLowerCase().includes(q) ||
-        (d.client_last_name || '').toLowerCase().includes(q) ||
         (d.serial_number || '').toLowerCase().includes(q) ||
         (d.city || '').toLowerCase().includes(q) ||
         (d.area_name || '').toLowerCase().includes(q) ||
@@ -721,20 +704,27 @@ function AdminDashboard({ user, onLogout, addToast }) {
             <form onSubmit={handleFireSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div className="group lg:col-span-3">
-                  <label className="mb-2 group-focus-within:text-blue-700 transition-colors">Select Client (User) *</label>
-                  <select name="client_id" required value={fireFormData.client_id} onChange={handleFireInputChange} className="input-field">
-                    <option value="">-- Select a client --</option>
-                    {clientUsers.map(cu => (
-                      <option key={cu.id} value={cu.id}>
-                        {cu.first_name} {cu.last_name} ({cu.username} - {cu.email})
+                  <label className="mb-2 group-focus-within:text-blue-700 transition-colors">Select User</label>
+                  <select name="client_id" value={selectedUserId} onChange={handleUserSelect} className="input-field">
+                    <option value="">-- Select a user --</option>
+                    {users.filter(u => u.role !== 'admin').map(u => (
+                      <option key={u.id} value={u.id}>
+                        {[u.first_name, u.last_name].filter(Boolean).join(' ').trim() || u.username} ({u.username} - {u.email})
                       </option>
                     ))}
                   </select>
-                  {fireEditingId && fireFormData.client_name && fireFormData.client_id === '' && (
-                    <p className="text-xs text-amber-600 mt-1.5">
-                      Current client: {fireFormData.client_name} (legacy record)
-                    </p>
-                  )}
+                </div>
+                <div className="group lg:col-span-3">
+                  <label className="mb-2 group-focus-within:text-blue-700 transition-colors">Client Name *</label>
+                  <input
+                    type="text"
+                    name="client_name"
+                    required
+                    value={fireFormData.client_name}
+                    onChange={handleFireInputChange}
+                    className="input-field"
+                    placeholder="Enter client name"
+                  />
                 </div>
                 {[['serial_number', 'Serial Number *', 'text'], ['installation_date', 'Installation Date *', 'date'],
                   ['city', 'City *', 'text'], ['area_name', 'Area Name *', 'text'], ['district_name', 'District Name *', 'text'], ['state', 'State *', 'text'],
@@ -900,11 +890,9 @@ function AdminDashboard({ user, onLogout, addToast }) {
                         <td className="px-4 py-3.5 border-b text-sm font-semibold text-gray-900">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-100 to-indigo-200 flex items-center justify-center flex-shrink-0">
-                              <span className="text-xs font-bold text-primary-700">{data.client_first_name ? data.client_first_name.charAt(0).toUpperCase() : (data.client_username ? data.client_username.charAt(0).toUpperCase() : (data.client_name ? data.client_name.charAt(0).toUpperCase() : '?'))}</span>
+                              <span className="text-xs font-bold text-primary-700">{(data.client_name || '?').charAt(0).toUpperCase()}</span>
                             </div>
-                            {data.client_first_name
-                              ? `${data.client_first_name} ${data.client_last_name || ''}`.trim()
-                              : (data.client_username || data.client_name || '-')}
+                            {data.client_name || '-'}
                           </div>
                         </td>
                         <td className="px-4 py-3.5 border-b text-sm text-gray-600 font-mono text-xs">{data.serial_number}</td>

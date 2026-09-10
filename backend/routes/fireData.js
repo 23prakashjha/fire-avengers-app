@@ -36,13 +36,12 @@ const upload = multer({
     }
 });
 
-// Get all fire data for logged-in user
+// Get all fire data
 router.get('/', auth, async (req, res) => {
     try {
         const [data] = await db.query(
-            `SELECT fd.*, cu.first_name AS client_first_name, cu.last_name AS client_last_name, cu.username AS client_username
+            `SELECT fd.*
              FROM fire_data fd
-             LEFT JOIN users cu ON fd.client_id = cu.id
              WHERE fd.user_id = ?
              ORDER BY fd.created_at DESC`,
             [req.user.userId]
@@ -58,10 +57,8 @@ router.get('/', auth, async (req, res) => {
 router.get('/all', adminAuth, async (req, res) => {
     try {
         const [data] = await db.query(
-            `SELECT fd.*, u.username, cu.first_name AS client_first_name, cu.last_name AS client_last_name, cu.username AS client_username
-             FROM fire_data fd 
-             JOIN users u ON fd.user_id = u.id 
-             LEFT JOIN users cu ON fd.client_id = cu.id
+            `SELECT fd.*
+             FROM fire_data fd
              ORDER BY fd.created_at DESC`
         );
         res.json(data);
@@ -76,15 +73,12 @@ router.get('/all/search/:query', adminAuth, async (req, res) => {
     try {
         const query = `%${req.params.query}%`;
         const [data] = await db.query(
-            `SELECT fd.*, u.username, cu.first_name AS client_first_name, cu.last_name AS client_last_name, cu.username AS client_username
-             FROM fire_data fd 
-             JOIN users u ON fd.user_id = u.id
-             LEFT JOIN users cu ON fd.client_id = cu.id
-             WHERE (fd.client_name LIKE ? OR fd.serial_number LIKE ? OR fd.city LIKE ? OR fd.state LIKE ? 
-                    OR fd.district_name LIKE ? OR fd.area_name LIKE ? OR fd.invoice_number LIKE ? OR u.username LIKE ?
-                    OR cu.first_name LIKE ? OR cu.last_name LIKE ? OR cu.username LIKE ?)
+            `SELECT fd.*
+             FROM fire_data fd
+             WHERE (fd.client_name LIKE ? OR fd.serial_number LIKE ? OR fd.city LIKE ? OR fd.state LIKE ?
+                    OR fd.district_name LIKE ? OR fd.area_name LIKE ? OR fd.invoice_number LIKE ?)
              ORDER BY fd.created_at DESC`,
-            [query, query, query, query, query, query, query, query, query, query, query]
+            [query, query, query, query, query, query, query]
         );
         res.json(data);
     } catch (error) {
@@ -97,7 +91,9 @@ router.get('/all/search/:query', adminAuth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
     try {
         const [data] = await db.query(
-            'SELECT * FROM fire_data WHERE id = ? AND user_id = ?',
+            `SELECT fd.*
+             FROM fire_data fd
+             WHERE fd.id = ? AND fd.user_id = ?`,
             [req.params.id, req.user.userId]
         );
 
@@ -112,17 +108,18 @@ router.get('/:id', auth, async (req, res) => {
     }
 });
 
-// Search fire data (scoped to logged-in user)
+// Search fire data
 router.get('/search/:query', auth, async (req, res) => {
     try {
         const query = `%${req.params.query}%`;
         const [data] = await db.query(
-            `SELECT fd.*, cu.first_name AS client_first_name, cu.last_name AS client_last_name, cu.username AS client_username
+            `SELECT fd.*
              FROM fire_data fd
-             LEFT JOIN users cu ON fd.client_id = cu.id
-             WHERE fd.user_id = ? AND (fd.client_name LIKE ? OR cu.first_name LIKE ? OR cu.last_name LIKE ? OR cu.username LIKE ? OR fd.serial_number LIKE ? OR fd.city LIKE ? OR fd.state LIKE ? OR fd.district_name LIKE ? OR fd.area_name LIKE ? OR fd.invoice_number LIKE ?)
+             WHERE (fd.client_name LIKE ? OR fd.serial_number LIKE ? OR fd.city LIKE ? OR fd.state LIKE ?
+                    OR fd.district_name LIKE ? OR fd.area_name LIKE ? OR fd.invoice_number LIKE ?)
+                   AND fd.user_id = ?
              ORDER BY fd.created_at DESC`,
-            [req.user.userId, query, query, query, query, query, query, query, query, query, query]
+            [query, query, query, query, query, query, query, req.user.userId]
         );
         res.json(data);
     } catch (error) {
@@ -135,7 +132,6 @@ router.get('/search/:query', auth, async (req, res) => {
 router.post('/', auth, upload.single('handover_certificate'), async (req, res) => {
     try {
         const {
-            client_id,
             client_name,
             serial_number,
             installation_date,
@@ -153,22 +149,17 @@ router.post('/', auth, upload.single('handover_certificate'), async (req, res) =
         } = req.body;
 
         const handover_certificate = req.file ? req.file.filename : null;
-        const isAdmin = req.user.role === 'admin';
-
-        const userId = isAdmin ? (client_id || req.user.userId) : req.user.userId;
-        const clientId = isAdmin ? (client_id || null) : req.user.userId;
-        const resolvedClientName = isAdmin ? (client_name || '') : client_name;
+        const user_id = req.body.user_id || req.user.userId;
 
         const [result] = await db.query(
             `INSERT INTO fire_data 
-             (user_id, client_id, client_name, serial_number, installation_date, city, area_name, district_name, state, 
+             (user_id, client_name, serial_number, installation_date, city, area_name, district_name, state, 
               cylinder_size, supply_type, handover_certificate, invoice_number, vehicle_name, 
               vehicle_number, warranty_in_date, warranty_over_date)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                userId,
-                clientId,
-                resolvedClientName,
+                user_id,
+                client_name,
                 serial_number,
                 installation_date,
                 city,
@@ -193,53 +184,45 @@ router.post('/', auth, upload.single('handover_certificate'), async (req, res) =
     }
 });
 
-// Fields that regular users are allowed to edit
-const USER_EDITABLE_FIELDS = ['client_name', 'city', 'state', 'area_name', 'district_name'];
-
 // Update fire data entry
 router.put('/:id', auth, upload.single('handover_certificate'), async (req, res) => {
     try {
-        const isAdmin = req.user.role === 'admin';
-        const whereClause = 'id = ?';
-        const whereParams = [req.params.id];
+        const {
+            client_name,
+            serial_number,
+            installation_date,
+            city,
+            area_name,
+            district_name,
+            state,
+            cylinder_size,
+            supply_type,
+            invoice_number,
+            vehicle_name,
+            vehicle_number,
+            warranty_in_date,
+            warranty_over_date
+        } = req.body;
 
-        let setClause = '';
-        let values = [];
+        let handover_certificate = req.body.existing_certificate;
+        if (Array.isArray(handover_certificate)) {
+            handover_certificate = handover_certificate[handover_certificate.length - 1] || null;
+        }
+        if (req.file) {
+            handover_certificate = req.file.filename;
+        }
 
-        if (isAdmin) {
-            const {
-                client_id,
-                client_name,
-                serial_number,
-                installation_date,
-                city,
-                area_name,
-                district_name,
-                state,
-                cylinder_size,
-                supply_type,
-                invoice_number,
-                vehicle_name,
-                vehicle_number,
-                warranty_in_date,
-                warranty_over_date
-            } = req.body;
+        const user_id = req.body.user_id || req.user.userId;
 
-            let handover_certificate = req.body.existing_certificate;
-            if (Array.isArray(handover_certificate)) {
-                handover_certificate = handover_certificate[handover_certificate.length - 1] || null;
-            }
-            if (req.file) {
-                handover_certificate = req.file.filename;
-            }
-
-            setClause = `user_id = ?, client_id = ?, client_name = ?, serial_number = ?, installation_date = ?, city = ?, area_name = ?, 
-                 district_name = ?, state = ?, cylinder_size = ?, supply_type = ?, 
-                 handover_certificate = ?, invoice_number = ?, vehicle_name = ?, 
-                 vehicle_number = ?, warranty_in_date = ?, warranty_over_date = ?`;
-            values = [
-                client_id || req.user.userId,
-                client_id || null,
+        const [result] = await db.query(
+            `UPDATE fire_data 
+             SET user_id = ?, client_name = ?, serial_number = ?, installation_date = ?, city = ?, area_name = ?,
+                 district_name = ?, state = ?, cylinder_size = ?, supply_type = ?,
+                 handover_certificate = ?, invoice_number = ?, vehicle_name = ?,
+                 vehicle_number = ?, warranty_in_date = ?, warranty_over_date = ?
+             WHERE id = ?`,
+            [
+                user_id,
                 client_name,
                 serial_number,
                 installation_date,
@@ -254,35 +237,9 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
                 vehicle_name,
                 vehicle_number,
                 warranty_in_date || null,
-                warranty_over_date || null
-            ];
-        } else {
-            // Regular users can only edit a restricted set of fields
-            const editableValues = {};
-            USER_EDITABLE_FIELDS.forEach(field => {
-                if (field in req.body) {
-                    editableValues[field] = req.body[field];
-                }
-            });
-
-            setClause = USER_EDITABLE_FIELDS
-                .filter(field => field in editableValues)
-                .map(field => `${field} = ?`)
-                .join(', ');
-
-            if (!setClause) {
-                return res.status(400).json({ message: 'No editable fields provided' });
-            }
-            values = USER_EDITABLE_FIELDS
-                .filter(field => field in editableValues)
-                .map(field => editableValues[field]);
-        }
-
-        const [result] = await db.query(
-            `UPDATE fire_data 
-             SET ${setClause}
-             WHERE ${whereClause}`,
-            [...values, ...whereParams]
+                warranty_over_date || null,
+                req.params.id
+            ]
         );
 
         if (result.affectedRows === 0) {
@@ -302,13 +259,9 @@ router.put('/:id', auth, upload.single('handover_certificate'), async (req, res)
 // Delete fire data entry
 router.delete('/:id', auth, async (req, res) => {
     try {
-        const isAdmin = req.user.role === 'admin';
-        const whereClause = isAdmin ? 'id = ?' : 'id = ? AND user_id = ?';
-        const whereParams = isAdmin ? [req.params.id] : [req.params.id, req.user.userId];
-
         const [result] = await db.query(
-            `DELETE FROM fire_data WHERE ${whereClause}`,
-            whereParams
+            'DELETE FROM fire_data WHERE id = ?',
+            [req.params.id]
         );
 
         if (result.affectedRows === 0) {

@@ -30,8 +30,7 @@ const createTables = [
     )`,
     `CREATE TABLE IF NOT EXISTS fire_data (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        client_id INT DEFAULT NULL,
+        user_id INT DEFAULT NULL,
         client_name VARCHAR(100) NOT NULL,
         serial_number VARCHAR(50) NOT NULL,
         installation_date DATE NOT NULL,
@@ -49,8 +48,7 @@ const createTables = [
         warranty_over_date DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE SET NULL
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     )`
 ];
 
@@ -87,14 +85,32 @@ const initDatabase = async () => {
             console.log('Migration: Added first_name, last_name columns to users table');
         }
 
-        const [clientIdCol] = await pool.query(
+        const [fkCols] = await pool.query(
+            "SELECT CONSTRAINT_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'fire_data' AND COLUMN_NAME IN ('client_id') AND REFERENCED_TABLE_NAME IS NOT NULL",
+            [DB_NAME]
+        );
+        for (const fk of fkCols) {
+            await pool.query(`ALTER TABLE fire_data DROP FOREIGN KEY ${fk.CONSTRAINT_NAME}`);
+            console.log(`Migration: Dropped foreign key ${fk.CONSTRAINT_NAME} from fire_data table`);
+        }
+
+        const [clientCols] = await pool.query(
             "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'fire_data' AND COLUMN_NAME = 'client_id'",
             [DB_NAME]
         );
-        if (clientIdCol.length === 0) {
-            await pool.query("ALTER TABLE fire_data ADD COLUMN client_id INT DEFAULT NULL AFTER user_id");
-            await pool.query("ALTER TABLE fire_data ADD FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE SET NULL");
-            console.log('Migration: Added client_id column to fire_data table');
+        for (const col of clientCols) {
+            await pool.query(`ALTER TABLE fire_data DROP COLUMN ${col.COLUMN_NAME}`);
+            console.log(`Migration: Dropped ${col.COLUMN_NAME} column from fire_data table`);
+        }
+
+        const [userIdCol] = await pool.query(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'fire_data' AND COLUMN_NAME = 'user_id'",
+            [DB_NAME]
+        );
+        if (userIdCol.length === 0) {
+            await pool.query("ALTER TABLE fire_data ADD COLUMN user_id INT DEFAULT NULL AFTER id");
+            await pool.query("ALTER TABLE fire_data ADD FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL");
+            console.log('Migration: Added user_id column to fire_data table');
         }
 
         const [adminExists] = await pool.query(
