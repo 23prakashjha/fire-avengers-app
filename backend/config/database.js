@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const DB_NAME = process.env.DB_NAME || 'fireavengers';
+const DB_NAME = process.env.DB_NAME || 'fire_avengers';
 
 const db = mysql.createPool({
     host: process.env.DB_HOST,
