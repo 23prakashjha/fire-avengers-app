@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 
 function Login({ onLogin, addToast }) {
   const [formData, setFormData] = useState({
@@ -21,7 +21,7 @@ function Login({ onLogin, addToast }) {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', formData);
+      const response = await api.post('/auth/login', formData);
       const { token, user: loggedInUser } = response.data;
       localStorage.setItem('token', token);
       onLogin(loggedInUser);

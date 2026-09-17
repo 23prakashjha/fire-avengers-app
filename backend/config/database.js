@@ -1,8 +1,9 @@
 const mysql = require('mysql2');
 const bcrypt = require('bcryptjs');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const DB_NAME = process.env.DB_NAME || 'fire_avengers';
+const DB_NAME = process.env.DB_NAME || 'fireavengers';
 
 const db = mysql.createPool({
     host: process.env.DB_HOST,
@@ -54,14 +55,6 @@ const createTables = [
 
 const initDatabase = async () => {
     try {
-        const conn = mysql.createConnection({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD
-        }).promise();
-        await conn.query(`CREATE DATABASE IF NOT EXISTS ${DB_NAME}`);
-        await conn.end();
-
         for (const statement of createTables) {
             await pool.query(statement);
         }

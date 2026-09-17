@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import api from '../api';
 
 function UserDashboard({ user, onLogout }) {
   const [fireData, setFireData] = useState([]);
@@ -24,7 +24,7 @@ function UserDashboard({ user, onLogout }) {
   const fetchFireData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/fire-data', {
+      const response = await api.get('/fire-data', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFireData(response.data);
@@ -359,13 +359,13 @@ function UserDashboard({ user, onLogout }) {
                       </div>
                     ) : (
                       <img
-                        src={`http://localhost:5000/uploads/${viewData.handover_certificate}`}
+                        src={`/uploads/${viewData.handover_certificate}`}
                         alt="Handover certificate"
                         className="w-20 h-20 object-cover rounded-xl border border-gray-200 flex-shrink-0 shadow-sm"
                       />
                     )}
                     <a
-                      href={`http://localhost:5000/uploads/${viewData.handover_certificate}`}
+                      href={`/uploads/${viewData.handover_certificate}`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 border border-blue-200 px-3.5 py-2 rounded-lg transition-colors"

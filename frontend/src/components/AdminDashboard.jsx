@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useNavigate } from 'react-router-dom';
 
 function AdminDashboard({ user, onLogout, addToast }) {
@@ -63,7 +63,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/users', {
+      const response = await api.get('/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(response.data);
@@ -87,12 +87,12 @@ function AdminDashboard({ user, onLogout, addToast }) {
       const token = localStorage.getItem('token');
       
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/users/${editingId}`, formData, {
+        await api.put(`/users/${editingId}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         addToast({ type: 'success', title: 'User Updated', message: `Updated ${formData.username} successfully` });
       } else {
-        await axios.post('http://localhost:5000/api/auth/register', {
+        await api.post('/auth/register', {
           ...formData,
           password: formData.password || 'default123'
         });
@@ -129,7 +129,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/users/${id}`, {
+      await api.delete(`/users/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       addToast({ type: 'success', title: 'User Deleted', message: 'The user has been removed' });
@@ -148,7 +148,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
   const fetchFireData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/fire-data/all', {
+      const response = await api.get('/fire-data/all', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFireData(response.data);
@@ -164,7 +164,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
     }
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5000/api/fire-data/all/search/${fireSearchQuery}`, {
+      const response = await api.get(`/fire-data/all/search/${fireSearchQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFireData(response.data);
@@ -203,12 +203,12 @@ function AdminDashboard({ user, onLogout, addToast }) {
 
       if (fireEditingId) {
         data.append('existing_certificate', fireFormData.existing_certificate || '');
-        await axios.put(`http://localhost:5000/api/fire-data/${fireEditingId}`, data, {
+        await api.put(`/fire-data/${fireEditingId}`, data, {
           headers: { Authorization: `Bearer ${token}` }
         });
         addToast({ type: 'success', title: 'Record Updated', message: 'Fire safety record updated successfully' });
       } else {
-        await axios.post('http://localhost:5000/api/fire-data', data, {
+        await api.post('/fire-data', data, {
           headers: { Authorization: `Bearer ${token}` }
         });
         addToast({ type: 'success', title: 'Record Created', message: 'New fire safety record has been added' });
@@ -255,7 +255,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/fire-data/${id}`, {
+      await api.delete(`/fire-data/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       addToast({ type: 'success', title: 'Record Deleted', message: 'Fire safety record has been removed' });
