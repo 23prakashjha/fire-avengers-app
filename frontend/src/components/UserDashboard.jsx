@@ -27,7 +27,8 @@ function UserDashboard({ user, onLogout }) {
       const response = await api.get('/fire-data', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setFireData(response.data);
+      const data = response.data;
+      setFireData(Array.isArray(data) ? data : Array.isArray(data?.fireData) ? data.fireData : []);
     } catch (error) {
       console.error('Error fetching fire data:', error);
     }

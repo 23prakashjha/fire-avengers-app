@@ -66,7 +66,8 @@ function AdminDashboard({ user, onLogout, addToast }) {
       const response = await api.get('/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setUsers(response.data);
+      const data = response.data;
+      setUsers(Array.isArray(data) ? data : Array.isArray(data?.users) ? data.users : []);
     } catch (error) {
       console.error('Error fetching users:', error);
       if (error.response?.status === 403) {
@@ -151,7 +152,8 @@ function AdminDashboard({ user, onLogout, addToast }) {
       const response = await api.get('/fire-data/all', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setFireData(response.data);
+      const data = response.data;
+      setFireData(Array.isArray(data) ? data : Array.isArray(data?.fireData) ? data.fireData : []);
     } catch (error) {
       console.error('Error fetching fire data:', error);
     }
@@ -167,7 +169,7 @@ function AdminDashboard({ user, onLogout, addToast }) {
       const response = await api.get(`/fire-data/all/search/${fireSearchQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setFireData(response.data);
+      setFireData(Array.isArray(response.data) ? response.data : Array.isArray(response.data?.fireData) ? response.data.fireData : []);
     } catch (error) {
       console.error('Error searching fire data:', error);
     }
